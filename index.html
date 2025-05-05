@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bubble Tap Mission</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      background: skyblue;
+      font-family: Arial, sans-serif;
+    }
+    #gameArea {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: transparent;
+    }
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font-size: 18px;
+      z-index: 2;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    #message {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+      z-index: 5;
+      text-align: center;
+    }
+    #message button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameArea">
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div id="hud">
+      <div>Level: <span id="level">1</span></div>
+      <div>Time: <span id="time">60</span>s</div>
+      <div>Score: <span id="score">0</span>/<span id="target">100</span></div>
+      <div>Tap only: <span id="targetColor" style="font-weight:bold;"></span></div>
+    </div>
+    <div id="message">
+      <div id="messageText"></div>
+      <button onclick="restartGame()">Restart</button>
+    </div>
+
+    <!-- Background Music -->
+    <audio id="bgMusic" autoplay loop>
+      <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const bubbles = [];
+    let score = 0, level = 1, target = 100, timeLeft = 60;
+    let targetColor = '';
+    let timerInterval, gameRunning = true;
+
+    const colors = ["red", "green", "blue", "yellow", "purple"];
+    const hud = {
+      level: document.getElementById('level'),
+      score: document.getElementById('score'),
+      target: document.getElementById('target'),
+      time: document.getElementById('time'),
+      color: document.getElementById('targetColor')
+    };
+
+    function getRandomColor() {
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function setTargetColor() {
+      targetColor = getRandomColor();
+      hud.color.innerText = targetColor;
+      hud.color.style.color = targetColor;
+    }
+
+    function createBubble() {
+      return {
+        x: Math.random() * 360 + 20,
+        y: 600,
+        radius: 20,
+        color: getRandomColor(),
+        speed: Math.random() * 2 + 1
+      };
+    }
+
+    function drawBubble(b) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fillStyle = b.color;
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function updateBubbles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (Math.random() < 0.05) bubbles.push(createBubble());
+
+      bubbles.forEach((b, i) => {
+        b.y -= b.speed;
+        drawBubble(b);
+      });
+    }
+
+    function gameLoop() {
+      if (!gameRunning) return;
+      updateBubbles();
+      requestAnimationFrame(gameLoop);
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (!gameRunning) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      for (let i = 0; i < bubbles.length; i++) {
+        const b = bubbles[i];
+        const dist = Math.hypot(b.x - x, b.y - y);
+        if (dist < b.radius) {
+          if (b.color === targetColor) {
+            score++;
+            hud.score.innerText = score;
+            bubbles.splice(i, 1);
+            if (score >= target) {
+              nextLevel();
+            }
+          } else {
+            gameOver("Wrong color tapped! Game Over.");
+          }
+          break;
+        }
+      }
+    });
+
+    function startTimer() {
+      timeLeft = 60;
+      hud.time.innerText = timeLeft;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        hud.time.innerText = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          if (score >= target) {
+            nextLevel();
+          } else {
+            gameOver("Time's up! Mission Failed.");
+          }
+        }
+      }, 1000);
+    }
+
+    function nextLevel() {
+      clearInterval(timerInterval);
+      level++;
+      score = 0;
+      target += 20;
+      bubbles.length = 0;
+      hud.level.innerText = level;
+      hud.target.innerText = target;
+      hud.score.innerText = score;
+      setTargetColor();
+      startTimer();
+    }
+
+    function gameOver(message) {
+      gameRunning = false;
+      clearInterval(timerInterval);
+      document.getElementById("messageText").innerText = message;
+      document.getElementById("message").style.display = "block";
+    }
+
+    function restartGame() {
+      level = 1;
+      score = 0;
+      target = 100;
+      gameRunning = true;
+      bubbles.length = 0;
+      hud.level.innerText = level;
+      hud.target.innerText = target;
+      hud.score.innerText = score;
+      setTargetColor();
+      document.getElementById("message").style.display = "none";
+      startTimer();
+      gameLoop();
+    }
+
+    // Start game initially
+    setTargetColor();
+    startTimer();
+    gameLoop();
+  </script>
+</body>
+</html>
